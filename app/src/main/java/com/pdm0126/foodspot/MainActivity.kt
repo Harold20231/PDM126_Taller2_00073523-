@@ -2,46 +2,70 @@ package com.pdm0126.foodspot
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.pdm0126.foodspot.ui.theme.FoodSpotTheme
+import androidx.compose.runtime.*
+import com.pdm0126.foodspot.data.repository.HardcodedRestaurantRepository
+import com.pdm0126.foodspot.navigation.Screen
+import com.pdm0126.foodspot.screens.detail.RestaurantDetailScreen
+import com.pdm0126.foodspot.screens.detail.RestaurantDetailViewModel
+import com.pdm0126.foodspot.screens.list.RestaurantListScreen
+import com.pdm0126.foodspot.screens.list.RestaurantListViewModel
+import com.pdm0126.foodspot.screens.search.SearchScreen
+import com.pdm0126.foodspot.screens.search.SearchViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        val repository = HardcodedRestaurantRepository()
+
+        val listViewModel = RestaurantListViewModel(repository)
+        val detailViewModel = RestaurantDetailViewModel(repository)
+        val searchViewModel = SearchViewModel(repository)
+
         setContent {
-            FoodSpotTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+            var currentScreen by remember { mutableStateOf<Screen>(Screen.List) }
+            val backStack = remember { mutableStateListOf<Screen>() }
+
+            fun navigateTo(screen: Screen) {
+                backStack.add(currentScreen)
+                currentScreen = screen
+            }
+
+            fun navigateBack() {
+                if (backStack.isNotEmpty()) {
+                    currentScreen = backStack.removeAt(backStack.size - 1)
+                }
+            }
+
+            BackHandler(enabled = backStack.isNotEmpty()) {
+                navigateBack()
+            }
+
+            when (val screen = currentScreen) {
+                is Screen.List -> {
+                    RestaurantListScreen(
+                        viewModel = listViewModel,
+                        onNavigateToSearch = { navigateTo(Screen.Search) },
+                        onNavigateToDetail = { id -> navigateTo(Screen.Detail(id)) }
+                    )
+                }
+                is Screen.Search -> {
+                    SearchScreen(
+                        viewModel = searchViewModel,
+                        onNavigateBack = { navigateBack() },
+                        onNavigateToDetail = { id -> navigateTo(Screen.Detail(id)) }
+                    )
+                }
+                is Screen.Detail -> {
+                    RestaurantDetailScreen(
+                        restaurantId = screen.restaurantId,
+                        viewModel = detailViewModel,
+                        onNavigateBack = { navigateBack() }
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    FoodSpotTheme {
-        Greeting("Android")
     }
 }
